@@ -7,6 +7,8 @@ Que se optimiza respecto de pandas_pipeline.py (todo a mano, nada automático):
   3. Filtrar ANTES del join (y el join corre en Arrow, multihilo, sin pasar por pandas).
   4. dtype_backend="pyarrow": numéricos y strings quedan en Arrow, sin conversión a NumPy/object.
   5. El intermedio a disco es mucho más chico que el del pandas ingenuo.
+  6. Se agrupa por el mes truncado (un timestamp) y "YYYY-MM" se formatea DESPUÉS de agregar:
+     strftime fila por fila sobre millones de filas es lo más caro de todo el paso.
 
 Lo que sigue siendo manual: elegir columnas, escribir el filtro, ordenar los pasos. DuckDB lo
 hace solo a partir de la query SQL.
@@ -47,13 +49,18 @@ def extract_filter_join(data_dir: str, tmp_dir: str) -> str:
 def transform_aggregate(enriched_path: str, out_dir: str) -> str:
     df = pd.read_parquet(enriched_path, dtype_backend="pyarrow")  # columnas ArrowDtype
     df["net"] = df["quantity"] * df["unit_price"] * (1 - df["discount"])
-    df["month"] = df["order_ts"].dt.strftime("%Y-%m")
+    # Truncar al mes es aritmética; strftime por fila es mucho más lento.
+    df["month_start"] = pd.Series(
+        pc.floor_temporal(pa.array(df["order_ts"]), unit="month"), index=df.index,
+        dtype=df["order_ts"].dtype,
+    )
     out = (
-        df.groupby(["country", "month"])
+        df.groupby(["country", "month_start"])
         .agg(orders=("order_id", "count"), revenue=("net", "sum"), avg_ticket=("net", "mean"))
         .reset_index()
-        .sort_values(["country", "month"])
+        .sort_values(["country", "month_start"])
     )
+    out.insert(1, "month", out.pop("month_start").dt.strftime("%Y-%m"))  # solo ~240 filas
     Path(out_dir).mkdir(parents=True, exist_ok=True)
     path = f"{out_dir}/pandas_pyarrow_monthly_revenue.parquet"
     out.to_parquet(path, index=False)

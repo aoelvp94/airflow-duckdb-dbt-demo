@@ -9,7 +9,7 @@ DATA_DIR = "/usr/local/airflow/include/data"
     start_date=datetime(2025, 1, 1),
     schedule=None,
     catchup=False,
-    params={"rows": 5_000_000},  # cambialo al disparar el DAG: 1M, 10M, 50M...
+    params={"rows": 1_000_000},  # cambialo al disparar el DAG: 1000, 100000, 1000000...
     tags=["demo", "setup"],
     doc_md="Genera `orders.parquet` y `customers.parquet`. Correr UNA vez antes de los pipelines.",
 )
