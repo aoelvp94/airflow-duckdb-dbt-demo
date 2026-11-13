@@ -1,0 +1,7 @@
+# Demo de memoria: renombrá a docker-compose.override.yml y reiniciá (astro dev restart).
+# Con LocalExecutor las tareas corren dentro del contenedor scheduler, así que este límite
+# hace que pandas muera por OOM (tarea en 'failed', exit -9) mientras DuckDB sigue vivo.
+# Ajustá el valor según el tamaño de datos que generaste.
+services:
+  scheduler:
+    mem_limit: 2g

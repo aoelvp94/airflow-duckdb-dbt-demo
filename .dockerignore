@@ -1,0 +1,11 @@
+include/data/*.parquet
+include/data/*.tmp
+include/tmp/*.parquet
+include/output/*.parquet
+include/warehouse/*.duckdb*
+dbt/ecommerce/target/
+dbt/ecommerce/logs/
+__pycache__/
+.env
+docker-compose.override.yml
+.bench/

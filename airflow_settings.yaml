@@ -1,0 +1,7 @@
+airflow:
+  pools:
+    # DuckDB (modo archivo) admite UN solo proceso escritor a la vez.
+    # Con el pool en 1 slot, las tareas dbt se serializan y no se pelean por el lock.
+    - pool_name: duckdb_single_writer
+      pool_slot: 1
+      pool_description: "Un solo escritor sobre el archivo .duckdb"

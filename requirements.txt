@@ -1,0 +1,10 @@
+# Cosmos >= 1.16 soporta dbt OSS (dbt v2). El extra instala dbt-oss (Apache 2.0).
+# Cosmos detecta dbt v2 mirando el entorno Python de Airflow: dbt-oss debe estar acá,
+# y NO debe estar dbt-core 1.x en el mismo entorno.
+astronomer-cosmos[dbt-oss]>=1.16.0
+
+# DuckDB 2.0 (LTS, oct 2026) requiere Python >= 3.11
+duckdb>=2.0.0
+pandas>=3.0
+pyarrow>=15.0
+numpy>=1.26

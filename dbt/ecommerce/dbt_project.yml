@@ -1,0 +1,20 @@
+name: ecommerce
+version: "1.0.0"
+config-version: 2
+profile: ecommerce
+
+model-paths: ["models"]
+
+vars:
+  data_dir: /usr/local/airflow/include/data
+
+models:
+  ecommerce:
+    # dbt v2 analiza el SQL antes de ejecutarlo (static analysis). Las funciones de tabla
+    # de DuckDB como read_parquet() pueden quedar fuera de lo que entiende el analizador
+    # (ver dbt-fusion#1464), asi que lo apagamos en este demo. Ejercicio: probalo en `marts`.
+    +static_analysis: off
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table

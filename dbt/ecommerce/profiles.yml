@@ -1,0 +1,8 @@
+ecommerce:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: /usr/local/airflow/include/warehouse/ecommerce.duckdb
+      schema: main
+      threads: 1   # un solo escritor sobre el archivo .duckdb

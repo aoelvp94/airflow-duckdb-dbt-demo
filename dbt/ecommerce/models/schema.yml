@@ -1,0 +1,30 @@
+version: 2
+
+# dbt v2: `data_tests` (no `tests`) y argumentos de tests genericos bajo `arguments`.
+models:
+  - name: stg_orders
+    description: "Órdenes crudas leídas desde Parquet."
+    columns:
+      - name: order_id
+        data_tests: [unique, not_null]
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [completed, cancelled, refunded]
+
+  - name: stg_customers
+    description: "Clientes con país y segmento."
+    columns:
+      - name: customer_id
+        data_tests: [unique, not_null]
+
+  - name: monthly_revenue
+    description: "Revenue, órdenes y ticket promedio por país y mes (solo órdenes completed desde 2023)."
+    columns:
+      - name: country
+        data_tests: [not_null]
+      - name: month
+        data_tests: [not_null]
+      - name: revenue
+        data_tests: [not_null]

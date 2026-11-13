@@ -1,0 +1,10 @@
+{
+  "name": "airflow-duckdb-dbt-demo",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "postCreateCommand": "curl -sSL https://install.astronomer.io | sudo bash -s",
+  "hostRequirements": { "cpus": 4, "memory": "16gb" },
+  "forwardPorts": [8080]
+}
