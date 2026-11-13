@@ -14,8 +14,9 @@ contenedores de Astro. Si querés migrar un proyecto dbt viejo, `uvx dbt-autofix
 ```bash
 astro dev start                 # la primera vez construye la imagen (varios minutos)
 ```
-1. Abrí http://localhost:8080 (si pide login en el entorno local de Astro, probá `admin` / `admin`).
-2. Disparar `00_generate_data` con `rows` = 5000000 (o lo que aguante tu máquina).
+1. Abrí la URL que imprime `astro dev start` (con Astro CLI 1.46:
+   `http://airflow-duckdb-dbt-demo.localhost:6563`). En local no hay login.
+2. Disparar `00_generate_data` con `rows` = 1000000 (1M alcanza; tarda segundos).
 3. Disparar una vez `10_pipeline_pandas`, `15_pipeline_pandas_pyarrow` y `20_pipeline_duckdb_dbt`.
    El primer `dbt` baja el driver de DuckDB, así que necesita internet: mejor que eso pase ahora.
 4. Disparar `30_compare_results` y confirmar que termina en verde.
@@ -38,7 +39,7 @@ Abrí en el editor y marcá una cosa de cada uno:
 ```bash
 astro dev start
 ```
-Disparar `00_generate_data` con **Trigger DAG w/ config** y `rows` = 5000000.
+Disparar `00_generate_data` con **Trigger DAG w/ config** y `rows` = 1000000.
 Mostrá los archivos que aparecen en la carpeta del proyecto: `ls -lh include/data`.
 
 ### 3. Pipeline 1, pandas ingenuo (4 min)
@@ -82,10 +83,10 @@ herramienta embebida frente a un warehouse en la nube (o MotherDuck / DuckLake).
 cp docker-compose.override.yml.example docker-compose.override.yml
 astro dev restart
 ```
-Con el scheduler limitado a 2 GB y suficientes filas, la task de pandas muere por falta de
-memoria. Después disparar `20_pipeline_duckdb_dbt` sobre los mismos datos. Ojo: el kernel puede
-matar procesos del contenedor del scheduler; si Airflow tarda en responder, esperá unos
-segundos. Para volver atrás: borrar el override y `astro dev restart`.
+Limita el scheduler a 2 GB. **Con datos chicos no reproduce**: probado con `rows` = 5M, la task
+de pandas termina (más lenta). Si querés mostrar el OOM en vivo, usá el repo `duckdb-vs-pandas`
+con `docker run -m 2g` y 10M filas, donde `pandas_naive` muere y DuckDB sigue. Para volver
+atrás: `rm docker-compose.override.yml && astro dev restart`.
 
 ### 9. Cierre (2 min)
 | Pregunta | Respuesta |
@@ -99,7 +100,8 @@ segundos. Para volver atrás: borrar el override y `astro dev restart`.
 - **El DAG de dbt no aparece o da error de parseo**: mirá el log del *dag-processor*
   (`astro dev logs`). Si es un lock de DuckDB, pasá Cosmos a `LoadMode.DBT_MANIFEST`.
 - **`30_compare_results` falla por archivo inexistente**: faltó correr el pipeline pandas o el de dbt.
-- **El OOM no reproduce**: subí `rows` en `00_generate_data` o bajá `mem_limit` en el override.
+- **El OOM no reproduce**: es lo esperado con pocos datos (ver paso 8).
+- **`astro dev start` falla por un puerto ocupado**: ver "Puertos ocupados" en los Gotchas del `README.md`.
 
 ## Ejercicios para los alumnos
 1. Agregá un modelo `top_customers` en `dbt/ecommerce/models/marts/` y mirá cómo aparece en el DAG.

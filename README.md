@@ -3,6 +3,9 @@
 Mismo pipeline de negocio (filtro → join → revenue mensual por país) implementado de dos
 formas y orquestado con **Airflow 3.3** corriendo local con **Astro CLI**.
 
+> **¿Vas a dar la clase?** Seguí el guion paso a paso en **[DEMO.md](DEMO.md)** (25-30 min).
+> Cómo medir y resultados: [BENCHMARK.md](BENCHMARK.md).
+
 ## Stack (versiones al 12-nov-2026)
 
 | Pieza | Versión | Nota |
@@ -29,22 +32,43 @@ Docker (o Podman) y [Astro CLI](https://www.astronomer.io/docs/astro/cli/install
 
 ## Correrlo
 ```bash
-astro dev start            # build + levanta Airflow en http://localhost:8080
+astro dev start            # build + levanta Airflow; al final imprime la URL de la UI
 ```
-1. Disparar `00_generate_data` (probá `rows` = 5M, 20M...).
+Abrí la URL que imprime `astro dev start` (con Astro CLI 1.46 es
+`http://airflow-duckdb-dbt-demo.localhost:6563`). En local no hay login: todos son admin.
+
+1. Disparar `00_generate_data` (alcanza con `rows` = 1000, 100000 o 1000000).
 2. Disparar `10_pipeline_pandas`, `15_pipeline_pandas_pyarrow` y `20_pipeline_duckdb_dbt`.
 3. Disparar `30_compare_results` (compara cada pandas contra DuckDB/dbt).
 4. Comparar en la UI: **Gantt** (duración por task) y `docker stats` (RAM en vivo).
 
 Tests de integridad de DAGs: `astro dev pytest`
 
+## Resultados (resumen)
+
+Duración del DAG run, mediana de 3 corridas (Apple M4, Docker con 10 CPUs y 7.7 GiB, otro
+proyecto de Airflow corriendo en paralelo: hay ruido). Detalle y método en
+[BENCHMARK.md](BENCHMARK.md#resultados).
+
+| `rows` | pandas (`10`) | pandas + PyArrow (`15`) | DuckDB + dbt (`20`) |
+|---|---:|---:|---:|
+| 1,000 | 8.4 s | 3.3 s | 11.8 s |
+| 100,000 | 3.9 s | 3.7 s | 9.2 s |
+| 5,000,000 | 18.9 s | 8.4 s | 11.5 s |
+
+Con pocos datos manda el overhead de Airflow y de dbt (6 tasks), no el motor. Al subir `rows`,
+pandas ingenuo crece y DuckDB + dbt casi no cambia.
+
 ## Demo de OOM (opcional)
 ```bash
 cp docker-compose.override.yml.example docker-compose.override.yml
 astro dev restart
 ```
-Con el scheduler limitado a 2 GB y suficientes filas, la task de pandas muere por falta de
-memoria mientras DuckDB (que procesa en streaming y puede hacer spill a disco) sigue.
+Limita el contenedor `scheduler` (donde corren las tasks) a 2 GB. **Ojo: con datos chicos no
+reproduce.** Probado con `rows` = 5M: `10_pipeline_pandas` terminó bien (más lento, por la
+presión de memoria). Para mostrar el OOM en clase es más rápido y confiable el repo
+`duckdb-vs-pandas` con `docker run -m 2g` y 10M filas: ahí `pandas_naive` muere y DuckDB sigue.
+Para volver atrás: `rm docker-compose.override.yml && astro dev restart`.
 
 ## La escalera de optimización (el hilo de la clase)
 
@@ -85,6 +109,16 @@ orquestador? (Pista: el orquestador no acelera nada; aporta tests, linaje y rein
 - **Versiones de archivo**: dbt v2 trae su propio DuckDB *pinneado*, que puede ser más viejo
   que el 2.0 de Python. DuckDB 2.0 lee archivos viejos, pero un `.duckdb` escrito por 2.0 **no**
   se puede abrir con versiones anteriores: no escribas desde Python en `ecommerce.duckdb`.
+- **`astro dev pytest` y el caché de Cosmos**: al parsear el DAG, Cosmos corre `dbt ls` y guarda
+  el resultado en una Airflow Variable. En los tests no hay base de metadatos y eso falla con
+  `no such table: variable`. `tests/conftest.py` apaga ese caché solo para los tests
+  (`AIRFLOW__COSMOS__ENABLE_CACHE_DBT_LS=False`).
+- **Puertos ocupados** (otro proyecto de Astro corriendo): `astro config set postgres.port 5434`
+  y `astro config set api-server.port 8081` cambian los puertos de este proyecto. Eso edita
+  `.astro/config.yaml`; no lo commitees si es solo para tu máquina.
+- **`scripts/sample_mem.sh` con varios proyectos de Astro**: el filtro por defecto (`scheduler`)
+  también agarra los schedulers de otros proyectos. Usá
+  `FILTER='airflow-duckdb-dbt-demo.*scheduler' ./scripts/sample_mem.sh`.
 - Si el parseo del DAG de dbt falla por un lock mientras corre otro task, pasá Cosmos a
   `LoadMode.DBT_MANIFEST` con un manifest generado por `dbt parse`.
 - Setup para clase y datos medianos. Para producción: warehouse real (o MotherDuck/DuckLake)
