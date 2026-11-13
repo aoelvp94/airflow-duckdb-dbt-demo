@@ -8,6 +8,8 @@ reintentos, tests, linaje y visibilidad.
 ## Antes de la clase (30 min, una sola vez)
 
 Requisitos: Docker corriendo y [Astro CLI](https://www.astronomer.io/docs/astro/cli/install-cli).
+No se instala nada de Python en tu máquina: Airflow, dbt, DuckDB y pandas corren dentro de los
+contenedores de Astro. Si querés migrar un proyecto dbt viejo, `uvx dbt-autofix` corre sin instalar nada.
 
 ```bash
 astro dev start                 # la primera vez construye la imagen (varios minutos)
