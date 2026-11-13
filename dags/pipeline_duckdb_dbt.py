@@ -23,14 +23,11 @@ profile_config = ProfileConfig(
 def pipeline_duckdb_dbt():
     DbtTaskGroup(
         group_id="dbt",
-        project_config=ProjectConfig(DBT_PROJECT),
+        project_config=ProjectConfig(DBT_PROJECT, install_dbt_deps=False),  # sin packages.yml
         profile_config=profile_config,
         # dbt v2 es un binario: lo invocamos como subproceso (`dbt` en el PATH del entorno).
         execution_config=ExecutionConfig(invocation_mode=InvocationMode.SUBPROCESS),
-        operator_args={
-            "install_deps": False,
-            "pool": "duckdb_single_writer",  # un solo escritor sobre el .duckdb
-        },
+        operator_args={"pool": "duckdb_single_writer"},  # un solo escritor sobre el .duckdb
     )
 
 
