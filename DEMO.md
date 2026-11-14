@@ -23,6 +23,23 @@ astro dev start                 # la primera vez construye la imagen (varios min
 5. `astro dev pytest` para validar que los DAGs importan bien.
 6. Anotá los tiempos del ensayo (Gantt) por si la demo en vivo se demora.
 
+**Todo por consola** (alternativa a la UI; mismo resultado). Los DAGs arrancan pausados:
+```bash
+for d in 00_generate_data 10_pipeline_pandas 15_pipeline_pandas_pyarrow 20_pipeline_duckdb_dbt 30_compare_results; do astro dev run dags unpause $d; done
+astro dev run dags trigger 00_generate_data -c '{"rows": 1000000}'
+astro dev run dags list-runs 00_generate_data      # esperá a ver "success" antes de seguir
+astro dev run dags trigger 10_pipeline_pandas
+astro dev run dags trigger 15_pipeline_pandas_pyarrow
+astro dev run dags trigger 20_pipeline_duckdb_dbt
+astro dev run dags trigger 30_compare_results       # después de que terminen los tres anteriores
+astro dev run dags list-runs 30_compare_results     # estado, inicio y fin de cada corrida
+```
+Duración de cada task (lo mismo que el Gantt), con el `run_id` que muestra `list-runs`:
+```bash
+astro dev run tasks states-for-dag-run 20_pipeline_duckdb_dbt <run_id>
+```
+Disparalos de a uno: si dos pipelines corren a la vez, los tiempos y la RAM se mezclan.
+
 Si algo falla, mirá la sección "Gotchas" del `README.md` (Cosmos + dbt v2 y los locks de DuckDB
 son lo más probable).
 

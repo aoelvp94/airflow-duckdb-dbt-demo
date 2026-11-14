@@ -28,7 +28,16 @@ formas y orquestado con **Airflow 3.3** corriendo local con **Astro CLI**.
 | `30_compare_results` | Verifica que ambos pipelines dan resultados idénticos |
 
 ## Requisitos
-Docker (o Podman) y [Astro CLI](https://www.astronomer.io/docs/astro/cli/install-cli) >= 1.34.
+- Docker (o Podman) y [Astro CLI](https://www.astronomer.io/docs/astro/cli/install-cli) >= 1.34
+  (probado con 1.46).
+- **Recursos para Docker**: Airflow recién levantado (5 contenedores) usa ~1.2 GB; después de
+  correr los DAGs el scheduler solo sube a ~1.1 GB, y las tasks de pandas se suman encima.
+  Asigná **al menos 4 GB, mejor 8 GB** (Docker Desktop: Settings → Resources).
+- **Windows**: el Astro CLI tiene versión para Windows, pero `scripts/sample_mem.sh` es bash.
+  Lo más simple es **WSL2** (Ubuntu): instalá el Astro CLI dentro de WSL y cloná el repo ahí.
+- **La primera vez**: `astro dev start` construye la imagen (varios minutos) y el primer `dbt`
+  baja el driver de DuckDB (la primera task de dbt tardó 48 s, las siguientes 2-9 s). Las dos
+  cosas necesitan internet: hacelo antes de la clase.
 
 ## Correrlo
 ```bash
@@ -113,6 +122,9 @@ orquestador? (Pista: el orquestador no acelera nada; aporta tests, linaje y rein
   el resultado en una Airflow Variable. En los tests no hay base de metadatos y eso falla con
   `no such table: variable`. `tests/conftest.py` apaga ese caché solo para los tests
   (`AIRFLOW__COSMOS__ENABLE_CACHE_DBT_LS=False`).
+- **`astro dev start` falla con `port is already allocated`**: el Astro CLI elige puertos al
+  azar y a veces choca consigo mismo (nos pasó con 1.46 en un clon nuevo). Corré
+  `astro dev stop` y de nuevo `astro dev start`; la segunda vez elige otros puertos.
 - **Puertos ocupados** (otro proyecto de Astro corriendo): `astro config set postgres.port 5434`
   y `astro config set api-server.port 8081` cambian los puertos de este proyecto. Eso edita
   `.astro/config.yaml`; no lo commitees si es solo para tu máquina.
