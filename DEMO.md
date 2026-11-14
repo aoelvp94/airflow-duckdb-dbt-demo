@@ -49,7 +49,7 @@ son lo más probable).
 Abrí en el editor y marcá una cosa de cada uno:
 - `Dockerfile`: una sola línea. dbt v2 es un binario y no necesita virtualenv aparte.
 - `requirements.txt`: `astronomer-cosmos[dbt-oss]`, `duckdb`, `pandas`, `pyarrow`.
-- `dags/`: cuatro DAGs. `include/pipelines/`: el código pandas. `dbt/ecommerce/`: el proyecto dbt.
+- `dags/`: cinco DAGs (`00` genera datos, `10`/`15`/`20` son los pipelines, `30` compara). `include/pipelines/`: el código pandas. `dbt/ecommerce/`: el proyecto dbt.
 - `airflow_settings.yaml`: un pool de 1 slot. Dejá la pregunta abierta: *¿por qué?* (se contesta en el paso 6).
 
 ### 2. Levantar Airflow y generar datos (3 min)

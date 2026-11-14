@@ -157,7 +157,9 @@ Si tenés números de pandas 2 en la cabeza, volvé a medir.
 
 ## Codespaces
 El devcontainer trae Docker-in-Docker y el Astro CLI (recomendado 16 GB de RAM).
-Dentro: `astro dev start` y abrí el puerto 8080.
+Dentro, fijá el puerto de la UI (el Astro CLI 1.46 elige uno al azar) y levantá Airflow:
+`astro config set api-server.port 8080 && astro dev start`. Después abrí el puerto 8080 desde la
+pestaña *Ports* de Codespaces. (No lo commitees: edita `.astro/config.yaml`.)
 
 ## Licencia
 MIT (ver `LICENSE`).
