@@ -71,6 +71,39 @@ proyecto de Airflow corriendo en paralelo: hay ruido). Detalle y método en
 Con pocos datos manda el overhead de Airflow y de dbt (6 tasks), no el motor. Al subir `rows`,
 pandas ingenuo crece y DuckDB + dbt casi no cambia.
 
+### ¿Por qué pandas parece más rápido que DuckDB con pocos datos?
+
+Porque lo que se mide en Airflow es sobre todo **el costo de orquestar**, y el DAG de dbt lo
+paga más veces. No es que pandas sea mejor motor.
+
+1. **El DAG de dbt tiene el doble de tasks.** Los de pandas tienen 3; `20_pipeline_duckdb_dbt`
+   tiene 6 (3 modelos + 3 de tests, uno por modelo). Cada task arranca `dbt` de cero: parsea el
+   proyecto, se conecta a DuckDB, corre y termina. Con 1k filas, casi sin datos, las 6 tasks
+   suman unos 6 s (mediana: 1.2, 1.5, 0.7, 0.75, 1.3 y 0.7 s): es casi todo costo fijo de arranque.
+   Además, entre una task y la siguiente Airflow tarda entre 0.6 y 1.3 s en programarla: 6 tasks
+   son más esperas que 3.
+2. **Las tasks de dbt corren de a una, a propósito.** DuckDB admite un solo escritor por archivo,
+   así que el pool `duckdb_single_writer` deja correr una task de dbt por vez. Hasta los dos
+   modelos de staging, que no dependen entre sí, hacen fila.
+3. **El DAG de dbt además hace más trabajo**: corre 8 tests de datos (`unique`, `not_null`,
+   `accepted_values`) y escribe el resultado en una tabla de DuckDB. El de pandas solo hace
+   unos `assert`.
+4. **El motor en sí es más rápido.** En el repo `duckdb-vs-pandas`, sin orquestador, DuckDB le
+   gana a todas las variantes de pandas en todos los tamaños. A 1M filas la diferencia es chica
+   (0.10 s contra 0.12-0.23 s); a 10M, DuckDB tarda 0.18 s y pandas ingenuo 3.31 s (unas 18x).
+5. **Con pocos datos hay mucho ruido.** El DAG de pandas a 1k filas fue de 3.3 s a 11.7 s según
+   la corrida (había otro proyecto de Airflow corriendo); por eso 1k parece más lento que 100k.
+   A este tamaño, diferencias de pocos segundos no significan nada.
+
+**El cruce se ve a 5M filas**: pandas ingenuo sube a 18.9 s (lee todo y escribe un intermedio de
+~99 MB) y DuckDB + dbt casi no cambia (11.8 s con 1k, 11.5 s con 5M), porque su costo es casi
+todo fijo. pandas + PyArrow (8.4 s) todavía gana a 5M: tiene 3 tasks y hace el filtrado de
+columnas y filas a mano.
+
+**Moraleja**: con pocos datos pesa el overhead por task, no el motor. Mirá el **Gantt** de cada
+run: en el de dbt, la mayor parte de cada barra es arranque. Para comparar motores de forma justa
+dentro de Airflow, corré dbt como una sola task (ver "Para seguir explorando").
+
 ## Demo de OOM (opcional)
 ```bash
 cp docker-compose.override.yml.example docker-compose.override.yml
@@ -82,7 +115,7 @@ presión de memoria). Para ver el OOM es más rápido y confiable el repo
 `duckdb-vs-pandas` con `docker run -m 2g` y 10M filas: ahí `pandas_naive` muere y DuckDB sigue.
 Para volver atrás: `rm docker-compose.override.yml && astro dev restart`.
 
-## La escalera de optimización (el hilo de la clase)
+## La escalera de optimización
 
 | Paso | DAG | Qué se gana | Qué sigue siendo manual |
 |---|---|---|---|
@@ -90,7 +123,7 @@ Para volver atrás: `rm docker-compose.override.yml && astro dev restart`.
 | 2. pandas + PyArrow | `15` | Solo columnas necesarias, filtro en la lectura, join multihilo en Arrow, intermedio chico | Elegir columnas, escribir el predicado, ordenar los pasos |
 | 3. DuckDB + dbt | `20` | Lo anterior **sin escribirlo**, más tests, linaje y un task por modelo | Escribir la query SQL |
 
-Pregunta para la clase: ¿cuánto del speedup del paso 2 al 3 viene del motor y cuánto del
+Pregunta para pensar: ¿cuánto del speedup del paso 2 al 3 viene del motor y cuánto del
 orquestador? (Pista: el orquestador no acelera nada; aporta tests, linaje y reintentos.)
 
 ## Qué mirar
@@ -104,7 +137,7 @@ orquestador? (Pista: el orquestador no acelera nada; aporta tests, linaje y rein
 | Linaje | Implícito en el código | `ref()` genera el grafo y Cosmos lo vuelve tasks |
 | Reintentos | Re-ejecutar el paso (costoso) | Re-ejecutar solo el modelo que falló |
 
-## Gotchas didácticos (vale la pena contarlos)
+## Gotchas (vale la pena conocerlos)
 - **DuckDB admite un solo escritor** sobre el archivo. Por eso las tasks dbt usan el pool
   `duckdb_single_writer` (1 slot, `airflow_settings.yaml`) y el profile tiene `threads: 1`.
 - **dbt v2 no es un paquete Python** sino un binario autocontenido: no hay conflicto de
@@ -146,17 +179,47 @@ Esto **achica la brecha de memoria en strings** frente a pandas 2, pero no cambi
 estructural: pandas sigue cargando todas las columnas y filas en RAM y ejecutando en un hilo.
 Si tenés números de pandas 2 en la cabeza, volvé a medir.
 
-## Ejercicios
-1. Agregá un modelo `top_customers` en `marts/` y mirá cómo aparece en el DAG.
-2. Rompé un test (por ejemplo, un `status` inválido en los datos) y observá qué falla y qué no.
-3. Mirá `15_pipeline_pandas_pyarrow` y medí cuánto del trabajo de DuckDB ya lo hace PyArrow a mano.
-   Reemplazá el `groupby` de pandas por `pyarrow.Table.group_by(...).aggregate(...)` (cero pandas):
-   ¿cambia el tiempo o la RAM?
-4. Pasá `monthly_revenue` a `incremental` y comparalo con el pandas.
-5. Probá `ExecutionMode.WATCHER` de Cosmos: corre un solo `dbt build` y Airflow observa cada
-   nodo. Con DuckDB (un solo escritor) encaja muy bien y elimina la necesidad del pool.
-   (Con dbt OSS el productor debe correr como subproceso.)
-6. Prendé `static_analysis` en `marts` y mirá qué errores detecta dbt v2 antes de ejecutar.
+## Para seguir explorando
+
+Ideas para profundizar por tu cuenta. En cada una, antes de correr, anotá **qué esperás** que
+pase con el tiempo y la RAM, y después compará con lo que medís.
+
+**Medir mejor**
+
+1. **Encontrá el cruce.** Corré los tres pipelines con `rows` = 1M, 2M, 5M y 10M (si tu máquina
+   aguanta) y graficá la duración de cada DAG. ¿A partir de cuántas filas DuckDB + dbt le gana a
+   pandas? ¿Y a pandas + PyArrow?
+2. **dbt en una sola task.** Probá `ExecutionMode.WATCHER` de Cosmos: corre un solo `dbt build` y
+   Airflow observa cada nodo. ¿Cuánto baja la duración del DAG `20`? Con DuckDB (un solo
+   escritor) encaja muy bien y elimina la necesidad del pool. (Con dbt OSS el productor debe
+   correr como subproceso.)
+3. **Separá motor de orquestador.** Mirá el Gantt y sumá cuánto de cada DAG es tiempo dentro de
+   las tasks y cuánto es espera entre tasks.
+4. **Sacá el pool.** Quitá `pool` del DAG `20` y pasá `threads` del profile a 4. ¿Qué pasa? ¿Aparece algún
+   error de lock? (Pista: un solo escritor por archivo `.duckdb`.)
+
+**Otros motores**
+
+5. **Polars.** Escribí un DAG `16_pipeline_polars` con el mismo pipeline usando `polars`
+   (motor en Rust, lazy, con pushdown en `scan_parquet`). ¿Dónde queda frente a pandas + PyArrow
+   y DuckDB? Agregalo a `30_compare_results` para verificar que dé lo mismo.
+6. **Cero pandas.** En `15_pipeline_pandas_pyarrow`, reemplazá el `groupby` de pandas por
+   `pyarrow.Table.group_by(...).aggregate(...)`. ¿Cambia el tiempo o la RAM?
+7. **Sin intermedios a disco.** En el DAG `10`, juntá las tres tasks en una sola. ¿Cuánto tiempo
+   era leer y escribir el intermedio? ¿Qué perdés (reintentos por paso, visibilidad)?
+
+**dbt**
+
+8. Agregá un modelo `top_customers` en `marts/` y mirá cómo aparece solo en el DAG.
+9. Rompé un test (por ejemplo, un `status` inválido en los datos) y observá qué tasks fallan y
+   cuáles no se ejecutan.
+10. Pasá `monthly_revenue` a `incremental`: ¿cuánto tarda la segunda corrida con los mismos datos?
+11. Prendé `static_analysis` en `marts` y mirá qué errores detecta dbt v2 antes de ejecutar.
+
+**Llevarlo a tu proyecto**
+
+12. Elegí un pipeline de tu proyecto final y escribí cómo lo dividirías en tasks o modelos: qué
+    queda en SQL (dbt), qué en Python, y qué datos pasan de un paso al otro.
 
 ## Codespaces
 El devcontainer trae Docker-in-Docker y el Astro CLI (recomendado 16 GB de RAM).
