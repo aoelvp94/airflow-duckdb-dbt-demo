@@ -3,6 +3,8 @@
 Mismo pipeline de negocio (filtro → join → revenue mensual por país) implementado de dos
 formas y orquestado con **Airflow 3.3** corriendo local con **Astro CLI**.
 
+> **¿Sos alumno?** Empezá por **[GUIA.md](GUIA.md)**: instalación por sistema operativo y paso a paso.
+>
 > **¿Vas a dar la clase?** Seguí el guion paso a paso en **[DEMO.md](DEMO.md)** (25-30 min).
 > Cómo medir y resultados: [BENCHMARK.md](BENCHMARK.md).
 
