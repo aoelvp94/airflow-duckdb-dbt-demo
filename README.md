@@ -3,10 +3,11 @@
 Mismo pipeline de negocio (filtro → join → revenue mensual por país) implementado de dos
 formas y orquestado con **Airflow 3.3** corriendo local con **Astro CLI**.
 
-> **¿Sos alumno?** Empezá por **[GUIA.md](GUIA.md)**: instalación por sistema operativo y paso a paso.
+> **Para correr la demo y ver los resultados por tu cuenta**, seguí **[GUIA.md](GUIA.md)**:
+> instalación por sistema operativo y paso a paso. Necesitás Docker y el Astro CLI.
 >
-> **¿Vas a dar la clase?** Seguí el guion paso a paso en **[DEMO.md](DEMO.md)** (25-30 min).
-> Cómo medir y resultados: [BENCHMARK.md](BENCHMARK.md).
+> Cómo medir y resultados: [BENCHMARK.md](BENCHMARK.md). Guion para presentarla en vivo
+> (25-30 min): [DEMO.md](DEMO.md).
 
 ## Stack (versiones al 12-nov-2026)
 
@@ -39,7 +40,7 @@ formas y orquestado con **Airflow 3.3** corriendo local con **Astro CLI**.
   Lo más simple es **WSL2** (Ubuntu): instalá el Astro CLI dentro de WSL y cloná el repo ahí.
 - **La primera vez**: `astro dev start` construye la imagen (varios minutos) y el primer `dbt`
   baja el driver de DuckDB (la primera task de dbt tardó 48 s, las siguientes 2-9 s). Las dos
-  cosas necesitan internet: hacelo antes de la clase.
+  cosas necesitan internet: hacelo una vez antes de empezar.
 
 ## Correrlo
 ```bash
@@ -77,7 +78,7 @@ astro dev restart
 ```
 Limita el contenedor `scheduler` (donde corren las tasks) a 2 GB. **Ojo: con datos chicos no
 reproduce.** Probado con `rows` = 5M: `10_pipeline_pandas` terminó bien (más lento, por la
-presión de memoria). Para mostrar el OOM en clase es más rápido y confiable el repo
+presión de memoria). Para ver el OOM es más rápido y confiable el repo
 `duckdb-vs-pandas` con `docker run -m 2g` y 10M filas: ahí `pandas_naive` muere y DuckDB sigue.
 Para volver atrás: `rm docker-compose.override.yml && astro dev restart`.
 
@@ -92,7 +93,7 @@ Para volver atrás: `rm docker-compose.override.yml && astro dev restart`.
 Pregunta para la clase: ¿cuánto del speedup del paso 2 al 3 viene del motor y cuánto del
 orquestador? (Pista: el orquestador no acelera nada; aporta tests, linaje y reintentos.)
 
-## Qué mostrar a los alumnos
+## Qué mirar
 
 | Tema | pandas | DuckDB + dbt |
 |---|---|---|
@@ -135,7 +136,7 @@ orquestador? (Pista: el orquestador no acelera nada; aporta tests, linaje y rein
   `FILTER='airflow-duckdb-dbt-demo.*scheduler' ./scripts/sample_mem.sh`.
 - Si el parseo del DAG de dbt falla por un lock mientras corre otro task, pasá Cosmos a
   `LoadMode.DBT_MANIFEST` con un manifest generado por `dbt parse`.
-- Setup para clase y datos medianos. Para producción: warehouse real (o MotherDuck/DuckLake)
+- Setup para aprender y para datos medianos. Para producción: warehouse real (o MotherDuck/DuckLake)
   y revisar el estado de Cosmos + dbt OSS, que todavía es experimental.
 
 ## Nota sobre pandas 3

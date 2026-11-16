@@ -1,4 +1,4 @@
-# Guía para alumnos: Airflow + pandas vs DuckDB + dbt
+# Guía paso a paso: Airflow + pandas vs DuckDB + dbt
 
 En esta guía vas a levantar **Airflow 3** en tu máquina con el **Astro CLI** y correr el mismo
 pipeline (filtro → join → revenue mensual por país) de tres formas: pandas, pandas sobre PyArrow
@@ -14,7 +14,7 @@ Todo corre dentro de contenedores Docker: no instalás Python, Airflow ni dbt en
 | 4. Correr los DAGs | 10 min |
 | 5. Ver y comparar resultados | 10 min |
 
-> Hacé los pasos 1 a 3 **antes de la clase**: necesitan internet y la primera vez tardan.
+> Los pasos 1 a 3 se hacen **una sola vez**: necesitan internet y la primera vez tardan.
 > Si ya hiciste la guía del repo `duckdb-vs-pandas`, Docker ya lo tenés: saltá al Astro CLI.
 
 ---
